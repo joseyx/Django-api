@@ -61,7 +61,7 @@ class UserView(APIView):
 # Vista para actualizar los datos de un usuario por su id
 class UserUpdateView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser]
+    # parser_classes = [MultiPartParser]
 
     def put(self, request, pk):
         try:
