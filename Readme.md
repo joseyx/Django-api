@@ -1,6 +1,3 @@
-Aquí tienes el `README.md` actualizado con instrucciones sobre cómo acceder al shell de PostgreSQL para crear la base de datos:
-
-
 # Proyecto Django con PostgreSQL
 
 Este proyecto es una aplicación web construida con Django y PostgreSQL. A continuación, se detallan los pasos para instalar y configurar el proyecto en un entorno local.
@@ -68,14 +65,6 @@ Ejecuta las migraciones para configurar la base de datos:
 
 ```bash
 python manage.py migrate
-```
-
-### 7. Crear un superusuario
-
-Crea un superusuario para acceder al panel de administración de Django:
-
-```bash
-python manage.py createsuperuser
 ```
 
 ### 8. Ejecutar el servidor de desarrollo
