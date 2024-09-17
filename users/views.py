@@ -90,6 +90,7 @@ class UserUpdateView(APIView):
         if not profile_serializer.is_valid():
             errors.update(profile_serializer.errors)
         return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
 # Vista para eliminar al usuario autenticado
 class UserDeleteView(APIView):
     permission_classes = [IsAuthenticated]
@@ -136,6 +137,8 @@ class UserDetailView(APIView):
             'user': user_serializer.data,
             'profile': profile_serializer.data
         })
+
+
 # Vista de prueba para verificar la autenticación
 class TestView(APIView):
     permission_classes = [IsAuthenticated]
