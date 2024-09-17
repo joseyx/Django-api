@@ -1,4 +1,5 @@
 from django.http import Http404
+from rest_framework.parsers import MultiPartParser
 
 from .models import CustomUser as User
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -60,6 +61,7 @@ class UserView(APIView):
 # Vista para actualizar los datos de un usuario por su id
 class UserUpdateView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
 
     def put(self, request, pk):
         try:
@@ -137,6 +139,14 @@ class UserDetailView(APIView):
             'user': user_serializer.data,
             'profile': profile_serializer.data
         })
+
+# Vista para cerrar sesión
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        request.user.auth_token.delete()
+        return Response(status=status.HTTP_200_OK)
 
 
 # Vista de prueba para verificar la autenticación
