@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'backendInterfaces',
     'users',
+    'ajustes',
 ]
 
 MIDDLEWARE = [

@@ -1,11 +1,8 @@
 from datetime import date
-import os
 
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
-
-from PIL import Image
 
 # Modelo de usuario personalizado que extiende AbstractUser
 class CustomUser(AbstractUser):
@@ -64,34 +61,13 @@ class Profile(models.Model):
         return today.year - self.fecha_nacimiento.year - (
                     (today.month, today.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day))
 
-    # Propiedad para calcular la antigüedad del usuario
+    # Propiedad para calcular la antigüedad del usuario en días
     @property
     def antiguedad(self):
         if self.fecha_registro is None:
             return None
         today = date.today()
-        return today.year - self.fecha_registro.year - ((today.month, today.day) < (self.fecha_registro.month, self.fecha_registro.day))
-
-    # Función para guardar el perfil y redimensionar las imágenes
-    def save(self, *args, **kwargs):
-        if not self.imagen_perfil:
-            self.imagen_perfil = self.DEFAULT_IMAGE_PATH
-        super().save(*args, **kwargs)
-        if self.imagen_perfil and self.imagen_perfil != self.DEFAULT_IMAGE_PATH:
-            self.imagen_perfil_big = self.resize_image(self.imagen_perfil.path, (800, 800), 'big')
-            self.imagen_perfil_medium = self.resize_image(self.imagen_perfil.path, (400, 400), 'medium')
-            self.imagen_perfil_mini = self.resize_image(self.imagen_perfil.path, (100, 100), 'mini')
-            super().save(*args, **kwargs)
-
-    # Función estática para redimensionar imágenes
-    @staticmethod
-    def resize_image(self, image_path, size, suffix):
-        img = Image.open(image_path)
-        img = img.resize(size, Image.Resampling.LANCZOS)
-        base, ext = os.path.splitext(image_path)
-        new_image_path = f"{base}_{suffix}{ext}"
-        img.save(new_image_path)
-        return new_image_path
+        return (today - self.fecha_registro).days
 
     # Función para representar el perfil como una cadena
     def __str__(self):
