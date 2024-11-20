@@ -16,3 +16,22 @@ class Ajustes(models.Model):
 
     def __str__(self):
         return f"Ajustes: Font Sizes - {self.font_size_title}, {self.font_size_subtitle}, {self.font_size_paragraph}"
+
+class Archivo(models.Model):
+    TIPO_DE_ARCHIVO_CHOICES = [
+        ('imagen', 'Imagen'),
+        ('documento', 'Documento'),
+        ('audio', 'Audio'),
+        ('video', 'Video'),
+        ('subtitulo', 'Subtítulo'),
+    ]
+
+    tipo_de_archivo = models.CharField(max_length=50, choices=TIPO_DE_ARCHIVO_CHOICES)
+    archivo = models.FileField(upload_to='archivos/')
+
+    class Meta:
+        verbose_name = 'Archivo'
+        verbose_name_plural = 'Archivos'
+
+    def __str__(self):
+        return f"Archivo: {self.archivo}"

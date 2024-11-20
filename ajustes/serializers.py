@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Ajustes
+from .models import Ajustes, Archivo
 
 class AjustesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -38,3 +38,8 @@ class AjustesUpdateSerializer(serializers.ModelSerializer):
             validated_data.pop('font_file')
 
         return super().update(instance, validated_data)
+
+class ArchivoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Archivo
+        fields = '__all__'
