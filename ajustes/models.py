@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 class Ajustes(models.Model):
@@ -20,10 +21,11 @@ class Ajustes(models.Model):
 class Archivo(models.Model):
     TIPO_DE_ARCHIVO_CHOICES = [
         ('imagen', 'Imagen'),
-        ('documento', 'Documento'),
+        ('wysiwyg', 'Wysiwyg'),
         ('audio', 'Audio'),
         ('video', 'Video'),
         ('subtitulo', 'Subtítulo'),
+        ('manual', 'Manual'),
     ]
 
     tipo_de_archivo = models.CharField(max_length=50, choices=TIPO_DE_ARCHIVO_CHOICES)
@@ -35,3 +37,16 @@ class Archivo(models.Model):
 
     def __str__(self):
         return f"Archivo: {self.archivo}"
+
+    def save(self, *args, **kwargs):
+        if self.tipo_de_archivo == 'wysiwyg' and Archivo.objects.filter(tipo_de_archivo='wysiwyg').count() >= 1:
+            raise ValidationError("Solo se permite 1 archivo Wysiwyg.")
+        if self.tipo_de_archivo == 'audio' and Archivo.objects.filter(tipo_de_archivo='audio').count() >= 3:
+            raise ValidationError("Solo se permiten 3 archivos de audio.")
+        if self.tipo_de_archivo == 'video' and Archivo.objects.filter(tipo_de_archivo='video').count() >= 1:
+            raise ValidationError("Solo se permite 1 archivo de video.")
+        if self.tipo_de_archivo == 'subtitulo' and Archivo.objects.filter(tipo_de_archivo='subtitulo').count() >= 5:
+            raise ValidationError("Solo se permiten 5 archivos de subtítulo.")
+        if self.tipo_de_archivo == 'manual' and Archivo.objects.filter(tipo_de_archivo='manual').count() >= 1:
+            raise ValidationError("Solo se permite 1 archivo manual.")
+        super().save(*args, **kwargs)
