@@ -71,5 +71,6 @@ class ArchivosAdmin(admin.ModelAdmin):
         'alto',
         'duracion',
         'formato',
+        'name',
     )
 

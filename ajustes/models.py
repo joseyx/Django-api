@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from django.db import models
 import mutagen
 import imghdr
-import ffmpeg
 
 class Ajustes(models.Model):
     # Tamaños de fuentes
@@ -35,6 +34,7 @@ class Archivo(models.Model):
         ('manual', 'Manual'),
     ]
 
+    name = models.CharField(max_length=255, null=True, blank=True)  # New name field
     tipo_de_archivo = models.CharField(max_length=50, choices=TIPO_DE_ARCHIVO_CHOICES)
     archivo = models.FileField(upload_to='archivos/')
     peso = models.PositiveIntegerField(null=True, blank=True)  # Peso del archivo en bytes
@@ -63,6 +63,9 @@ class Archivo(models.Model):
             if self.tipo_de_archivo == 'manual' and Archivo.objects.filter(tipo_de_archivo='manual').count() >= 1:
                 raise ValidationError("Solo se permite 1 archivo manual.")
 
+            # Set the name field to the file name
+            self.name = os.path.basename(self.archivo.name)
+
             # Save the file first to ensure it exists on the filesystem
             super().save(*args, **kwargs)
 
@@ -78,7 +81,11 @@ class Archivo(models.Model):
                 self.ancho, self.alto = image.size
                 self.formato = image.format.lower()
 
-            # Verify and set duration and format for audio/video
+                # Resize the image to 1920x1080
+                image = image.resize((1920, 1080))
+                image.save(self.archivo.path)
+
+            # Verify and set duration and format for audio
             if self.tipo_de_archivo == 'audio':
                 media_info = mutagen.File(file_path)
                 if media_info is None or not media_info.mime[0].startswith('audio'):
@@ -86,7 +93,7 @@ class Archivo(models.Model):
                 self.duracion = int(media_info.info.length)
                 self.formato = media_info.mime[0]
 
-            # Verify video file extension
+            # Verify video file extension and set duration
             if self.tipo_de_archivo == 'video':
                 valid_video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv']
                 ext = os.path.splitext(file_path)[1].lower()
@@ -104,14 +111,6 @@ class Archivo(models.Model):
                 except subprocess.CalledProcessError:
                     raise ValidationError("No se pudo obtener la duración del video.")
 
-            # Verify manual file extension
-            if self.tipo_de_archivo == 'manual':
-                valid_manual_extensions = ['.pdf', '.doc', '.docx']
-                ext = os.path.splitext(file_path)[1].lower()
-                if ext not in valid_manual_extensions:
-                    raise ValidationError("El archivo no tiene una extensión de manual válida.")
-                self.formato = ext[1:]  # Set the format to the file extension without the dot
-
             # Verify subtitle file extension
             if self.tipo_de_archivo == 'subtitulo':
                 valid_subtitle_extensions = ['.srt', '.vtt', '.ass', '.ssa']
@@ -120,8 +119,16 @@ class Archivo(models.Model):
                     raise ValidationError("El archivo no tiene una extensión de subtítulo válida.")
                 self.formato = ext[1:]  # Set the format to the file extension without the dot
 
+            # Verify manual file extension
+            if self.tipo_de_archivo == 'manual':
+                valid_manual_extensions = ['.pdf', '.doc', '.docx']
+                ext = os.path.splitext(file_path)[1].lower()
+                if ext not in valid_manual_extensions:
+                    raise ValidationError("El archivo no tiene una extensión de manual válida.")
+                self.formato = ext[1:]  # Set the format to the file extension without the dot
+
             # Save again to update the fields
-            super().save(*args, **kwargs)
+            super().save(update_fields=['peso', 'ancho', 'alto', 'duracion', 'formato'])
 
         except ValidationError as e:
             # Delete the file if an error is detected
