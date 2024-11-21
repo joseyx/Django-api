@@ -47,6 +47,11 @@ class ArchivosAdmin(admin.ModelAdmin):
     list_display = (
         'tipo_de_archivo',
         'archivo',
+        'peso',
+        'ancho',
+        'alto',
+        'duracion',
+        'formato',
     )
     list_filter = (
         'tipo_de_archivo',
@@ -59,5 +64,12 @@ class ArchivosAdmin(admin.ModelAdmin):
     ordering = (
         'tipo_de_archivo',
         'archivo',
+    )
+    readonly_fields = (
+        'peso',
+        'ancho',
+        'alto',
+        'duracion',
+        'formato',
     )
 
