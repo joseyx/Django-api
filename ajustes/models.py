@@ -52,8 +52,8 @@ class Archivo(models.Model):
 
     def save(self, *args, **kwargs):
         try:
-            if self.tipo_de_archivo == 'wysiwyg' and Archivo.objects.filter(tipo_de_archivo='wysiwyg').count() >= 1:
-                raise ValidationError("Solo se permite 1 archivo Wysiwyg.")
+            if self.tipo_de_archivo == 'wysiwyg' and Archivo.objects.filter(tipo_de_archivo='wysiwyg').count() >= 2:
+                raise ValidationError("Solo se permite 2 archivo Wysiwyg.")
             if self.tipo_de_archivo == 'audio' and Archivo.objects.filter(tipo_de_archivo='audio').count() >= 3:
                 raise ValidationError("Solo se permiten 3 archivos de audio.")
             if self.tipo_de_archivo == 'video' and Archivo.objects.filter(tipo_de_archivo='video').count() >= 1:
