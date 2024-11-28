@@ -120,7 +120,7 @@ class Archivo(models.Model):
                 self.formato = ext[1:]  # Set the format to the file extension without the dot
 
             # Verify manual file extension
-            if self.tipo_de_archivo == 'manual':
+            if self.tipo_de_archivo == 'manual' or self.tipo_de_archivo == 'wysiwyg':
                 valid_manual_extensions = ['.pdf', '.doc', '.docx']
                 ext = os.path.splitext(file_path)[1].lower()
                 if ext not in valid_manual_extensions:
