@@ -61,5 +61,5 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        exclude = ['user', 'imagen_perfil']
+        exclude = ['user']
         read_only_fields = ('age', 'antiguedad', 'is_admin')

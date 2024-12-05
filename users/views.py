@@ -1,3 +1,6 @@
+import os
+
+from PIL import Image
 from rest_framework.views import APIView
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -9,6 +12,26 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import CustomUser as User
 from .serializers import UserSerializer, ProfileSerializer, UserUpdateSerializer,  ProfileUpdateSerializer
+
+
+def resize_image(image_path):
+    sizes = {
+        'big': (1920, 1080),
+        'medium': (1280, 720),
+        'mini': (640, 360)
+    }
+    image = Image.open(image_path)
+    resized_paths = {}
+    base_dir = os.path.dirname(image_path)
+
+    for size_name, size in sizes.items():
+        resized_image = image.resize(size)
+        resized_filename = f"{os.path.basename(image_path).rsplit('.', 1)[0]}_{size_name}.{image_path.rsplit('.', 1)[1]}"
+        resized_path = os.path.join(base_dir, resized_filename)
+        resized_image.save(resized_path)
+        resized_paths[size_name] = os.path.relpath(resized_path, base_dir)
+    return resized_paths
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -94,12 +117,27 @@ class UserViewSet(viewsets.ModelViewSet):
         profile_data = request.data.get('profile', {})
         profile_serializer = ProfileUpdateSerializer(instance=user.profile, data=profile_data, partial=True)
 
+        # Manejar la imagen de perfil
+        if 'profile[imagen_perfil]' in request.FILES:
+            user.profile.imagen_perfil = request.FILES['profile[imagen_perfil]']
+            user.profile.save()
+
         user_valid = user_serializer.is_valid()
         profile_valid = profile_serializer.is_valid()
 
         if user_valid and profile_valid:
             user_serializer.save()
             profile_serializer.save()
+
+            # Reescalar la imagen de perfil y guardar en los campos correspondientes
+            imagen_perfil = user.profile.imagen_perfil
+            if imagen_perfil:
+                resized_paths = resize_image(imagen_perfil.path)
+                user.profile.imagen_perfil_big = "profile_images/"+resized_paths['big']
+                user.profile.imagen_perfil_medium = "profile_images/"+resized_paths['medium']
+                user.profile.imagen_perfil_mini = "profile_images/"+resized_paths['mini']
+                user.profile.save()
+
             return Response({
                 'user': user_serializer.data,
                 'profile': profile_serializer.data
