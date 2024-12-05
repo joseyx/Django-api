@@ -37,6 +37,7 @@ class Profile(models.Model):
     fecha_nacimiento = models.DateField(null=True, blank=True)
     fecha_registro = models.DateField(auto_now_add=True)
     numero_telefono = models.CharField(validators=[phone_regex], max_length=13, blank=True)
+    # telefono_hogar = models.CharField(validators=[phone_regex], max_length=13, blank=True, null=True)
     identificacion = models.CharField(max_length=30, blank=True)
     # Campos de imagen
     imagen_perfil = models.ImageField(upload_to='profile_images/', null=True, blank=True)

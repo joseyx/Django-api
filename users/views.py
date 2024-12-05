@@ -1,43 +1,57 @@
-from django.http import Http404
-from rest_framework.parsers import MultiPartParser
+from rest_framework.views import APIView
+from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import CustomUser as User
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.contrib.auth import authenticate
-from rest_framework import status, generics
+from .serializers import UserSerializer, ProfileSerializer, UserUpdateSerializer,  ProfileUpdateSerializer
 
-from users.serializers import UserSerializer, ProfileSerializer, UserUpdateSerializer, UserLoginSerializer, \
-    ProfileUpdateSerializer
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]
+    serializer_class = UserSerializer
 
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return UserUpdateSerializer
+        return UserSerializer
 
-# Vista para el inicio de sesión
-class LoginView(APIView):
-    def post(self, request):
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, details=True)
+
+        return Response(serializer.data)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True, details=True)
+
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def login(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
         user = authenticate(email=email, password=password)
 
         if user:
             refresh = RefreshToken.for_user(user)
-            user_serializer = UserLoginSerializer(user)
+            user_serializer = UserSerializer(user, details=True)
+
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'user': user_serializer.data,
-                'is_admin': user.profile.is_admin
+                'is_admin': user_serializer.data.get('profile', {}).get('is_admin', False)
             })
         return Response({'error': 'Invalid Credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
-# Vista para el registro de usuarios
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
+    def register(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -46,11 +60,8 @@ class RegisterView(generics.CreateAPIView):
             "message": "User created successfully."
         }, status=status.HTTP_201_CREATED)
 
-# Vista para obtener los datos del usuario autenticado
-class UserView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request):
         user_serializer = UserSerializer(request.user)
         profile_serializer = ProfileSerializer(request.user.profile)
         return Response({
@@ -58,96 +69,48 @@ class UserView(APIView):
             'profile': profile_serializer.data
         })
 
-# Vista para actualizar los datos de un usuario por su id
-class UserUpdateView(APIView):
-    permission_classes = [IsAuthenticated]
-    # parser_classes = [MultiPartParser]
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def logout(self, request):
+        request.user.auth_token.delete()
+        return Response(status=status.HTTP_200_OK)
 
-    def put(self, request, pk):
-        try:
-            user = User.objects.get(id=pk)
-        except User.DoesNotExist:
-            raise Http404("User does not exist")
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='token')
+    def token(self, request):
+        return TokenObtainPairView.as_view()(request._request)
 
-        user_data = request.data.get('user')
-        profile_data = request.data.get('profile')
+    @action(detail=False, methods=['post'], permission_classes=[AllowAny], url_path='token/refresh')
+    def token_refresh(self, request):
+        return TokenRefreshView.as_view()(request._request)
 
-        if not profile_data:
-            return Response({"profile": ["This field is required."]}, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=True, methods=['put'], permission_classes=[AllowAny], url_path='update-profile')
+    def update_profile(self, request, pk=None):
+        user = self.get_object()
 
-        user_serializer = UserUpdateSerializer(user, data=user_data)
-        profile_serializer = ProfileUpdateSerializer(user.profile, data=profile_data)
+        # Actualizar datos del usuario
+        user_data = request.data.get('user', {})
+        user_serializer = UserUpdateSerializer(instance=user, data=user_data, partial=True)
 
-        if user_serializer.is_valid() and profile_serializer.is_valid():
+        # Actualizar datos del perfil
+        profile_data = request.data.get('profile', {})
+        profile_serializer = ProfileUpdateSerializer(instance=user.profile, data=profile_data, partial=True)
+
+        user_valid = user_serializer.is_valid()
+        profile_valid = profile_serializer.is_valid()
+
+        if user_valid and profile_valid:
             user_serializer.save()
             profile_serializer.save()
             return Response({
                 'user': user_serializer.data,
                 'profile': profile_serializer.data
-            })
+            }, status=status.HTTP_200_OK)
 
         errors = {}
-        if not user_serializer.is_valid():
+        if not user_valid:
             errors.update(user_serializer.errors)
-        if not profile_serializer.is_valid():
+        if not profile_valid:
             errors.update(profile_serializer.errors)
         return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
-# Vista para eliminar al usuario autenticado
-class UserDeleteView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request):
-        user = request.user
-        user.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-# Vista para obtener la lista de todos los usuarios con sus perfiles
-class UserListView(APIView):
-    # permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        users = User.objects.all()
-        user_data = []
-
-        for user in users:
-            user_serializer = UserSerializer(user)
-            profile_serializer = ProfileSerializer(user.profile)
-            user_data.append({
-                'user': user_serializer.data,
-                'profile': profile_serializer.data
-            })
-
-        return Response(user_data, status=status.HTTP_200_OK)
-
-# Vista para obtener los datos de un usuario específico
-class UserDetailView(APIView):
-    # permission_classes = [IsAuthenticated]
-
-    def get(self, request, pk):
-        try:
-            user = User.objects.get(id=pk)
-        except User.DoesNotExist:
-            raise Http404("User does not exist")
-
-        user_serializer = UserSerializer(user)
-        profile_serializer = ProfileSerializer(user.profile)
-        if profile_serializer.data['imagen_perfil'] == '':
-            profile_serializer.data['imagen_perfil'] = user.profile.DEFAULT_IMAGE_PATH
-
-        return Response({
-            'user': user_serializer.data,
-            'profile': profile_serializer.data
-        })
-
-# Vista para cerrar sesión
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        request.user.auth_token.delete()
-        return Response(status=status.HTTP_200_OK)
-
 
 # Vista de prueba para verificar la autenticación
 class TestView(APIView):
