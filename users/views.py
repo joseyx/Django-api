@@ -109,33 +109,52 @@ class UserViewSet(viewsets.ModelViewSet):
     def update_profile(self, request, pk=None):
         user = self.get_object()
 
-        # Actualizar datos del usuario
-        user_data = request.data.get('user', {})
-        user_serializer = UserUpdateSerializer(instance=user, data=user_data, partial=True)
+        # Normalizar los datos del usuario
+        user_data = {
+            key.replace('user[', '').replace(']', ''): value[0] if value else ''
+            for key, value in request.data.lists()
+            if key.startswith('user[')
+        }
+        profile_data = {
+            key.replace('profile[', '').replace(']', ''): value[0] if value and value[0] else None
+            for key, value in request.data.lists()
+            if key.startswith('profile[')
+        }
 
-        # Actualizar datos del perfil
-        profile_data = request.data.get('profile', {})
+        # Eliminar claves con valores `None`
+        profile_data = {k: v for k, v in profile_data.items() if v is not None}
+
+        # Serializadores
+        user_serializer = UserUpdateSerializer(instance=user, data=user_data, partial=True)
         profile_serializer = ProfileUpdateSerializer(instance=user.profile, data=profile_data, partial=True)
 
-        # Manejar la imagen de perfil
-        if 'profile[imagen_perfil]' in request.FILES:
-            user.profile.imagen_perfil = request.FILES['profile[imagen_perfil]']
-            user.profile.save()
-
-        user_valid = user_serializer.is_valid()
-        profile_valid = profile_serializer.is_valid()
-
-        if user_valid and profile_valid:
+        if user_serializer.is_valid() and profile_serializer.is_valid():
             user_serializer.save()
             profile_serializer.save()
 
-            # Reescalar la imagen de perfil y guardar en los campos correspondientes
-            imagen_perfil = user.profile.imagen_perfil
+            # Revisamos si `imagen_perfil` es un archivo o una URL
+            imagen_perfil_url = profile_data.get('imagen_perfil')
+            imagen_perfil = request.FILES.get('profile[imagen_perfil]')
+
+            if imagen_perfil_url:
+                # Si la URL comienza con 'http', ignoramos cualquier operación de imagen
+                if isinstance(imagen_perfil_url, str) and imagen_perfil_url.startswith('http'):
+                    return Response({
+                        'user': user_serializer.data,
+                        'profile': profile_serializer.data
+                    }, status=status.HTTP_200_OK)
+
             if imagen_perfil:
+                # se guarda la imagen en el perfil
+                user.profile.imagen_perfil = imagen_perfil
+                user.profile.save()
+
+                imagen_perfil = user.profile.imagen_perfil
+
                 resized_paths = resize_image(imagen_perfil.path)
-                user.profile.imagen_perfil_big = "profile_images/"+resized_paths['big']
-                user.profile.imagen_perfil_medium = "profile_images/"+resized_paths['medium']
-                user.profile.imagen_perfil_mini = "profile_images/"+resized_paths['mini']
+                user.profile.imagen_perfil_big = "profile_images/" + resized_paths['big']
+                user.profile.imagen_perfil_medium = "profile_images/" + resized_paths['medium']
+                user.profile.imagen_perfil_mini = "profile_images/" + resized_paths['mini']
                 user.profile.save()
 
             return Response({
@@ -144,10 +163,11 @@ class UserViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
 
         errors = {}
-        if not user_valid:
+        if not user_serializer.is_valid():
             errors.update(user_serializer.errors)
-        if not profile_valid:
+        if not profile_serializer.is_valid():
             errors.update(profile_serializer.errors)
+
         return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Vista de prueba para verificar la autenticación

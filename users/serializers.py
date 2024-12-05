@@ -13,7 +13,7 @@ class UserLoginSerializer(serializers.ModelSerializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name']
+        fields = ['email', 'first_name', 'last_name', 'username']
 
 # Serializer para la serialización de perfiles
 class ProfileSerializer(serializers.ModelSerializer):
@@ -59,7 +59,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
+    imagen_perfil = serializers.ImageField(required=False, allow_null=True)
+
     class Meta:
         model = Profile
-        exclude = ['user']
-        read_only_fields = ('age', 'antiguedad', 'is_admin')
+        fields = '__all__'
+
+    def validate_imagen_perfil(self, value):
+        if value and not hasattr(value, 'read') and not value.startswith('http'):
+            raise serializers.ValidationError("The submitted data was not a file or a valid URL.")
+        return value
+
